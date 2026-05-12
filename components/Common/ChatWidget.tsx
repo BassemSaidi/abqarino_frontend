@@ -102,7 +102,8 @@ export default function ChatWidget() {
     {
       id: "welcome",
       role: "assistant",
-      content: "👋 Hi there! I'm your AI assistant. How can I help you today?",
+      content:
+        "🚗 Hi! I'm ParkBot. Ask me anything about parking, QR codes, or reservations.",
       timestamp: new Date(),
     },
   ]);
@@ -188,6 +189,59 @@ export default function ChatWidget() {
     }
   };
 
+  const quickQuestions = [
+    "How does smart parking work?",
+    "How to reserve a place?",
+    "Where is my QR code?",
+    "How to scan the QR code?",
+    "How to check available places?",
+  ];
+
+  const handleQuickQuestion = async (question: string) => {
+    if (isLoading) return;
+
+    const userMessage: Message = {
+      id: crypto.randomUUID(),
+      role: "user",
+      content: question,
+      timestamp: new Date(),
+    };
+
+    setMessages((prev) => [...prev, userMessage]);
+    setError(null);
+    setIsLoading(true);
+
+    const history = [...messages, userMessage]
+      .filter((m) => m.id !== "welcome" || m.role !== "assistant")
+      .map(({ role, content }) => ({ role, content }));
+
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/chat`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ messages: history }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) throw new Error(data.error || "Request failed");
+
+      const assistantMessage: Message = {
+        id: crypto.randomUUID(),
+        role: "assistant",
+        content: data.message,
+        timestamp: new Date(),
+      };
+
+      setMessages((prev) => [...prev, assistantMessage]);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Something went wrong";
+      setError(msg);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   return (
     <>
       {/* ── Chat Window ─────────────────────────────────────── */}
@@ -206,7 +260,7 @@ export default function ChatWidget() {
         `}
         style={{ maxHeight: "520px" }}
         role="dialog"
-        aria-label="AI Chat Assistant"
+        aria-label="ParkBot Chat"
       >
         {/* Header */}
         <div className="flex items-center gap-3 px-4 py-3.5 bg-gradient-to-r from-blue-500/10 to-indigo-500/10 border-b border-white/6">
@@ -215,7 +269,7 @@ export default function ChatWidget() {
           </div>
           <div>
             <p className="text-sm font-semibold text-slate-100 font-mono tracking-tight">
-              AI Assistant
+              ParkBot
             </p>
             <p className="text-xs text-emerald-400 flex items-center gap-1.5">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block animate-pulse" />
@@ -229,6 +283,20 @@ export default function ChatWidget() {
           {messages.map((msg) => (
             <MessageBubble key={msg.id} message={msg} />
           ))}
+          {/* Quick Questions */}
+          {messages.length <= 1 && (
+            <div className="flex flex-wrap gap-2 mb-2">
+              {quickQuestions.map((q) => (
+                <button
+                  key={q}
+                  onClick={() => handleQuickQuestion(q)}
+                  className="text-xs px-3 py-2 rounded-xl bg-white/5 border border-white/10 text-slate-300 hover:bg-indigo-500/20 hover:border-indigo-500/30 transition-all duration-150 text-left"
+                >
+                  {q}
+                </button>
+              ))}
+            </div>
+          )}
           {isLoading && <TypingDots />}
           {error && (
             <p className="text-xs text-red-400 text-center bg-red-500/10 rounded-lg px-3 py-2 border border-red-500/20">
@@ -245,7 +313,7 @@ export default function ChatWidget() {
             value={input}
             onChange={handleInputChange}
             onKeyDown={handleKeyDown}
-            placeholder="Type a message… (Enter to send)"
+            placeholder="Ask about parking, QR code, reservation..."
             rows={1}
             className="flex-1 resize-none bg-white/7 border border-white/10 rounded-xl px-3.5 py-2.5 text-sm text-grayscale-600 placeholder-slate-500 outline-none focus:border-indigo-500/50 focus:ring-1 focus:ring-indigo-500/20 transition-colors font-mono leading-relaxed"
             style={{ maxHeight: "90px" }}
